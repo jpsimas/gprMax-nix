@@ -1,13 +1,13 @@
 { pkgs ? import <nixpkgs> {}
-# Enable MPI support
-, enableMpi ? true
-# Enable CUDA support. Needs NIXPKGS_ALLOW_UNFREE=1 to be set
 , enableCuda ? pkgs.config.cudaSupport or false
-# Enable march=native at compilation. Needs NIX_ENFORCE_NO_NATIVE=1 to be set
-, enableNative ? false 
+, enableMpi ? true
+, enableNative ? false
 }:
 
-pkgs.python3Packages.buildPythonPackage rec {
+let
+  mpi = pkgs.openmpi;
+  
+in pkgs.python3Packages.buildPythonPackage rec {
   pname = "gprMax";
   version = "3.1.7";
 
@@ -22,7 +22,7 @@ pkgs.python3Packages.buildPythonPackage rec {
     pkgs.python3Packages.cython
     pkgs.pkg-config
   ] ++ (pkgs.lib.optional enableCuda pkgs.cudatoolkit)
-    ++ (pkgs.lib.optional enableMpi pkgs.openmpi);
+    ++ (pkgs.lib.optional enableMpi mpi);
 
   buildInputs = with pkgs.python3Packages; [
     colorama
@@ -37,9 +37,9 @@ pkgs.python3Packages.buildPythonPackage rec {
     stdenv.cc.cc.lib
     zlib
   ]) ++ (pkgs.lib.optional enableCuda pkgs.cudatoolkit)
-    ++ (pkgs.lib.optional enableMpi pkgs.openmpi)
-    ++ (pkgs.lib.optional enableCuda pkgs.python3Packages.cupy)  # CUDA Python bindings
-    ++ (pkgs.lib.optional enableMpi pkgs.python3Packages.mpi4py);  # MPI Python bindings
+    ++ (pkgs.lib.optional enableMpi mpi)
+    ++ (pkgs.lib.optional enableCuda pycuda)
+    ++ (pkgs.lib.optional enableMpi mpi4py);
 
   # Set compiler flags with optional CUDA and MPI
   preConfigure = ''
@@ -60,22 +60,16 @@ pkgs.python3Packages.buildPythonPackage rec {
       export CUDA_PATH=${pkgs.cudatoolkit}
     ''}
     
-    # Add MPI support if enabled
+    # Add MPI support if enabled - manually add MPI flags instead of using mpicc
     ${pkgs.lib.optionalString enableMpi ''
-      export CC=${pkgs.openmpi}/bin/mpicc
-      export CXX=${pkgs.openmpi}/bin/mpic++
-      export NIX_CFLAGS_COMPILE="-I${pkgs.openmpi}/include $NIX_CFLAGS_COMPILE"
-      export NIX_LDFLAGS="-L${pkgs.openmpi}/lib $NIX_LDFLAGS"
-      export MPI_HOME=${pkgs.openmpi}
+      export NIX_CFLAGS_COMPILE="-I${mpi}/include $NIX_CFLAGS_COMPILE"
+      export NIX_LDFLAGS="-L${mpi}/lib -lmpi $NIX_LDFLAGS"
+      export MPI_HOME=${mpi}
+      # Set these for gprMax's build system to detect MPI
+      export MPI_INCLUDE_DIR=${mpi}/include
+      export MPI_LIB_DIR=${mpi}/lib
     ''}
   '';
-
-  # Setup.py arguments for optional features
-  setupPyBuildFlags = [
-    "--user"
-  ] ++ (pkgs.lib.optional enableCuda "--with-cuda")
-    ++ (pkgs.lib.optional enableMpi "--with-mpi")
-    ++ (pkgs.lib.optional enableNative "--arch=native");
 
   # Environment variables for runtime
   preFixup = ''
@@ -84,7 +78,7 @@ pkgs.python3Packages.buildPythonPackage rec {
       addToSearchPath LD_LIBRARY_PATH "${pkgs.cudatoolkit}/lib64"
     ''}
     ${pkgs.lib.optionalString enableMpi ''
-      addToSearchPath LD_LIBRARY_PATH "${pkgs.openmpi}/lib"
+      addToSearchPath LD_LIBRARY_PATH "${mpi}/lib"
     ''}
   '';
 
@@ -103,4 +97,3 @@ pkgs.python3Packages.buildPythonPackage rec {
     platforms = platforms.unix;
   };
 }
-  
