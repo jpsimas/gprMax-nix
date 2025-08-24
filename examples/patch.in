@@ -13,8 +13,8 @@ feed_inset_ratio = 0.4
 c0 = 3e8
 lambda0 = c0 / f_center
 lambda_d = lambda0 / np.sqrt(eps_r)
-dl = round(lambda_d / 15, 5)
-dz = substrate_height / 15
+dl = lambda_d / 20
+dz = substrate_height / 4
 L = lambda_d / 2
 W = 1.5 * L
 
@@ -46,9 +46,9 @@ print("")
 print("#material: 4.3 0 1 0 fr4")          # permittivity, conductivity, permeability, loss
 print("#material: 1 0 1 0 air")            # air
 print("")
-print(f"#box: 0.0 0.0 0.0 {domain_x:.6f} {domain_y:.6f} {dl:.6f} pec")  # CORRECTED: ground plane
-print(f"#box: 0.0 0.0 {substrate_zmin:.6f} {domain_x:.6f} {domain_y:.6f} {substrate_zmax:.6f} fr4")  # CORRECTED: substrate
-print(f"#box: {patch_start_x:.6f} {patch_start_y:.6f} {substrate_zmax:.6f} {patch_start_x + W:.6f} {patch_start_y + L:.6f} {substrate_zmax + dl:.6f} pec")  # CORRECTED: patch
+print(f"#box: 0.0 0.0 0.0 {domain_x:.6f} {domain_y:.6f} {dl:.6f} pec n")
+print(f"#box: 0.0 0.0 {substrate_zmin:.6f} {domain_x:.6f} {domain_y:.6f} {substrate_zmax:.6f} fr4 n")  # CORRECTED: substrate
+print(f"#box: {patch_start_x:.6f} {patch_start_y:.6f} {substrate_zmax:.6f} {patch_start_x + W:.6f} {patch_start_y + L:.6f} {substrate_zmax + dl:.6f} pec n")
 print("")
 print(f"#waveform: ricker 1 {f_center} feed_source")
 print(f"#hertzian_dipole: z {feed_x:.6f} {feed_y:.6f} {feed_z:.6f} feed_source")
