@@ -1,0 +1,1 @@
+NIXPKGS_ALLOW_UNFREE=1 NIX_ENFORCE_NO_NATIVE=0 nix-shell shell.nix
