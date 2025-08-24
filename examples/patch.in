@@ -1,94 +1,58 @@
-#title: Parametrized Pin-Fed Patch Antenna
-#python: 
-import numpy as np
-#end_python:
+#title: Pin-Fed Patch Antenna - 2.4 GHz
 
 #python:
-# ========================
-# USER-DEFINED PARAMETERS
-# ========================
-f_center = 2.4e9         # Center frequency (Hz)
-eps_r = 4.3              # Substrate relative permittivity
-substrate_height = 0.0016 # Substrate height (m)
-feed_inset_ratio = 0.4   # Feed inset from edge (L * ratio)
+import numpy as np
 
-# ========================
-# DERIVED PARAMETERS
-# ========================
-c0 = 3e8                 # Speed of light (m/s)
+# User parameters
+f_center = 2.4e9
+eps_r = 4.3
+substrate_height = 0.0016
+feed_inset_ratio = 0.4
 
-# Wavelength in free space
+# Calculations
+c0 = 3e8
 lambda0 = c0 / f_center
-
-# Wavelength in substrate
 lambda_d = lambda0 / np.sqrt(eps_r)
+dl = round(lambda_d / 15, 5)
+dz = substrate_height / 15
+L = lambda_d / 2
+W = 1.5 * L
 
-# Spatial discretization - Use λ_d / 15 for good accuracy
-dl = lambda_d / 15
-dl = np.round(dl, 5)     # Round to 0.1 mm precision
+# Domain with PML buffer
+pml_thickness = 10 * dl
+domain_x = 2 * lambda0 + 2 * pml_thickness
+domain_y = 2 * lambda0 + 2 * pml_thickness
+domain_z = 1.5 * lambda0 + 2 * pml_thickness
 
-# Patch dimensions (Standard formulae)
-L = lambda_d / 2         # Resonant length (~λ_d/2)
-W = 1.5 * L              # Width is often 1.2 to 1.5 times L
+time_window = 3e-9
+pml_cells = 10
 
-# Domain size (Multiple of free-space wavelength)
-domain_x = 2 * lambda0
-domain_y = 2 * lambda0
-domain_z = 1.5 * lambda0
-
-# Time window (Multiple of largest time dimension)
-time_window = 1.5 * (np.sqrt(domain_x**2 + domain_y**2 + domain_z**2) / c0)
-
-# Feed position calculation
 feed_y_inset = L * feed_inset_ratio
 patch_start_x = (domain_x - W) / 2
 patch_start_y = (domain_y - L) / 2
 feed_x = patch_start_x + W/2
 feed_y = patch_start_y + feed_y_inset
 
-# Substrate and patch z-positions
-substrate_zmin = dl  # One cell above bottom
+# Z positions
+substrate_zmin = dl + pml_thickness
 substrate_zmax = substrate_zmin + substrate_height
-patch_zmin = substrate_zmax
-patch_zmax = patch_zmin + dl  # One cell thick
+feed_z = substrate_zmin + (substrate_height / 2)
 
-# PML thickness
-pml_cells = 10
-
-# Output the calculated parameters
-print(f"Calculated parameters:")
-print(f"Free-space wavelength (λ0): {lambda0:.4f} m")
-print(f"Dielectric wavelength (λ_d): {lambda_d:.4f} m")
-print(f"Spatial step (dl): {dl:.5f} m")
-print(f"Patch dimensions (W x L): {W:.4f} x {L:.4f} m")
-print(f"Domain size: {domain_x:.3f} x {domain_y:.3f} x {domain_z:.3f} m")
-print(f"Feed position: ({feed_x:.4f}, {feed_y:.4f}) m")
+print(f"#domain: {domain_x:.6f} {domain_y:.6f} {domain_z:.6f}")
+print(f"#dx_dy_dz: {dl:.6f} {dl:.6f} {dz:.6f}")
+print(f"#time_window: {time_window}")
+print(f"#pml_cells: {pml_cells}")
+print("")
+print("#material: 4.3 0 1 0 fr4")          # permittivity, conductivity, permeability, loss
+print("#material: 1 0 1 0 air")            # air
+print("")
+print(f"#box: 0.0 0.0 0.0 {domain_x:.6f} {domain_y:.6f} {dl:.6f} pec")  # CORRECTED: ground plane
+print(f"#box: 0.0 0.0 {substrate_zmin:.6f} {domain_x:.6f} {domain_y:.6f} {substrate_zmax:.6f} fr4")  # CORRECTED: substrate
+print(f"#box: {patch_start_x:.6f} {patch_start_y:.6f} {substrate_zmax:.6f} {patch_start_x + W:.6f} {patch_start_y + L:.6f} {substrate_zmax + dl:.6f} pec")  # CORRECTED: patch
+print("")
+print(f"#waveform: ricker 1 {f_center} feed_source")
+print(f"#hertzian_dipole: z {feed_x:.6f} {feed_y:.6f} {feed_z:.6f} feed_source")
+print("")
+print(f"#rx: {feed_x:.6f} {feed_y:.6f} {substrate_zmin:.6f}")
+print(f"#rx: {feed_x:.6f} {feed_y:.6f} {substrate_zmax:.6f}")
 #end_python:
-
-# ========================
-# APPLY CALCULATED PARAMETERS
-# ========================
-#domain: ${domain_x} ${domain_y} ${domain_z}
-#dx_dy_dz: ${dl} ${dl} ${dl}
-#time_window: ${time_window}
-#pml_cells: ${pml_cells}
-
-# Material definitions
-#material: ${eps_r} 1 0 0 fr4
-#material: 1 1 0 0 air
-
-# Geometry
-#box: 0 0 0 ${domain_x} ${domain_y} ${dl} pec ground_plane
-#box: 0 0 ${substrate_zmin} ${domain_x} ${domain_y} ${substrate_zmax} fr4 substrate
-#box: ${patch_start_x} ${patch_start_y} ${patch_zmin} ${patch_start_x + W} ${patch_start_y + L} ${patch_zmax} pec patch
-
-# Source definition
-#waveform: ricker 1 ${f_center} my_source
-#hertzian_dipole: z ${feed_x} ${feed_y} ${substrate_zmin} ${feed_x} ${feed_y} ${patch_zmin} my_source
-
-# Outputs for S11 calculation
-#rx: ${feed_x} ${feed_y} ${substrate_zmin}
-#rx: ${feed_x} ${feed_y} ${patch_zmin}
-
-# Field output for radiation pattern analysis
-#rx_box: ${dl*pml_cells} ${dl*pml_cells} ${dl*pml_cells} ${domain_x - dl*pml_cells} ${domain_y - dl*pml_cells} ${domain_z - dl*pml_cells} ${dl*5} ${dl*5} ${dl*5} air
